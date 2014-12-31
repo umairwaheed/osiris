@@ -13,9 +13,16 @@ class OsirisTests(unittest.TestCase):
         self.app = loadapp('config:test.ini', relative_to=conf_dir)
         from webtest import TestApp
         self.testapp = TestApp(self.app)
+        self.app.registry.client_store.store("test_client", "test_secret")
 
     def tearDown(self):
-        self.app.registry.osiris_store._conn.drop_collection(self.app.registry.settings.get('osiris.store.collection'))
+        settings_get = self.app.registry.settings.get
+        self.app.registry.osiris_store._conn.drop_collection(
+            settings_get('osiris.store.collection')
+        )
+        self.app.registry.client_store._conn.drop_collection(
+            settings_get('osiris.store.client_collection')
+        )
         testing.tearDown()
 
     def test_token_endpoint(self):
@@ -173,7 +180,7 @@ class ClientCredentialTest(OsirisTests):
     def test_token_endpoint(self):
         # The standard allows arguments with "application/x-www-form-urlencoded"
         testurl = ('/token?grant_type=client_credentials&'
-                   'client_id=testuser&client_secret=test')
+                   'client_id=test_client&client_secret=test_secret')
         resp = self.testapp.post(testurl, status=200)
         response = resp.json
         self.assertTrue(
@@ -187,8 +194,8 @@ class ClientCredentialTest(OsirisTests):
         # Allow pass the arguments via standard post payload
         payload = {
             "grant_type": "client_credentials",
-            "client_id": "test",
-            "client_secret": "test"
+            "client_id": "test_client",
+            "client_secret": "test_secret"
         }
         resp = self.testapp.post('/token', payload, status=200)
         response = resp.json
@@ -199,3 +206,28 @@ class ClientCredentialTest(OsirisTests):
         self.assertTrue('scope' in response and response.get('scope') is None)
         self.assertTrue('expires_in' in response and response.get('expires_in') == 0)
         self.assertEqual(resp.content_type, 'application/json')
+
+    def test_token_endpoint_autherror(self):
+        """ On autherrors MUST return Bad Request (400) """
+        # Not the password
+        testurl = '/token?grant_type=password&username=testuser&password=notthepassword'
+        resp = self.testapp.post(testurl, status=400)
+        self.assertEqual(resp.content_type, 'application/json')
+
+        # No such user
+        testurl = '/token?grant_type=password&username=nosuchuser&password=notthepassword'
+        resp = self.testapp.post(testurl, status=400)
+        self.assertEqual(resp.content_type, 'application/json')
+
+        # POST payload
+        # Not the password
+        payload = {"grant_type": "password", "username": "testuser", "password": "notthepassword"}
+        resp = self.testapp.post('/token', payload, status=400)
+        self.assertEqual(resp.content_type, 'application/json')
+
+        # POST payload
+        # No such user
+        payload = {"grant_type": "password", "username": "nosuchuser", "password": "notthepassword"}
+        resp = self.testapp.post('/token', payload, status=400)
+        self.assertEqual(resp.content_type, 'application/json')
+

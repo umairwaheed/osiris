@@ -20,19 +20,27 @@ def includeme(config):
     port = int(settings.get('osiris.store.port', '27017'))
     db = settings.get('osiris.store.db', 'osiris')
     collection = settings.get('osiris.store.collection', 'tokens')
-
+    client_collection = settings.get('osiris.store.client_collection',
+                                     'clients')
     enable_cluster = asbool(settings.get('osiris.mongodb.cluster', False))
     hosts = settings.get('osiris.mongodb.hosts', 'localhost:27017')
     replica_set = settings.get('osiris.mongodb.replica_set', '')
     use_greenlets = settings.get('osiris.mongodb.use_greenlets', '')
 
-    store = MongoDBStore(
+    store = TokenDB(
         host=host, port=port, db=db, collection=collection,
         enable_cluster=enable_cluster, hosts=hosts, replica_set=replica_set,
         use_greenlets=use_greenlets
     )
 
+    client = ClientDB(
+        host=host, port=port, db=db, collection=client_collection,
+        enable_cluster=enable_cluster, hosts=hosts, replica_set=replica_set,
+        use_greenlets=use_greenlets
+    )
+
     config.registry.osiris_store = store
+    config.registry.client_store = client
 
 
 def handle_reconnects(fun):
@@ -97,30 +105,18 @@ class MongoDBStore(TokenStore):
             return None
 
     @handle_reconnects
-    def store(self, token, username, scope, expires_in):
-        data = {}
+    def store(self, **kwargs):
         try:
-            data['username'] = username
-            data['token'] = token
-            data['scope'] = scope
-            data['issued_at'] = datetime.datetime.utcnow()
-            if expires_in == '0':
-                data['expire_time'] = 0
-            else:
-                data['expire_time'] = datetime.datetime.utcnow() + \
-                    datetime.timedelta(seconds=int(expires_in))
-
-            self._conn[self.collection].insert(data)
-
+            self._conn[self.collection].insert(kwargs)
         except OperationFailure:
             return False
         else:
             return True
 
     @handle_reconnects
-    def delete(self, token):
+    def delete(self, **kwargs):
         try:
-            self._conn[self.collection].remove({'token': token})
+            self._conn[self.collection].remove(kwargs)
         except OperationFailure:
             return False
         else:
@@ -128,3 +124,35 @@ class MongoDBStore(TokenStore):
 
     def purge_expired(self):
         pass
+
+
+class TokenDB(MongoDBStore):
+    """MongoDB Storage for oAuth tokens"""
+
+    def store(self, token, username, scope, expires_in):
+        data = {}
+        data['username'] = username
+        data['token'] = token
+        data['scope'] = scope
+        data['issued_at'] = datetime.datetime.utcnow()
+        if expires_in == '0':
+            data['expire_time'] = 0
+        else:
+            data['expire_time'] = datetime.datetime.utcnow() + \
+                datetime.timedelta(seconds=int(expires_in))
+
+        return super(TokenDB, self).store(**data)
+
+    def delete(self, token):
+        return super(TokenDB, self).delete(token=token)
+
+
+class ClientDB(MongoDBStore):
+    """MongoDB Storage for clients"""
+
+    def store(self, client_id, client_secret):
+        return super(ClientDB, self).store(client_id=client_id,
+                                          client_secret=client_secret)
+
+    def delete(self, client_id):
+        return super(ClientDB, self).delete(client_id=client_id)
