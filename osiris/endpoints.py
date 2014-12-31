@@ -4,6 +4,7 @@ from pyramid.httpexceptions import HTTPOk, HTTPUnauthorized
 from osiris.appconst import ACCESS_TOKEN_LENGTH
 from osiris.errorhandling import OAuth2ErrorHandler
 from osiris.authorization import password_authorization
+from osiris.authorization import client_credential_authorization
 
 
 @view_config(name='token',
@@ -30,18 +31,34 @@ def token_endpoint(request):
         return OAuth2ErrorHandler.error_unsupported_grant_type()
     # Client Credentials
     elif grant_type == 'client_credentials':
-        return OAuth2ErrorHandler.error_unsupported_grant_type()
+        scope = request.params.get('scope', None)  # Optional
+        client_id = request.params.get('client_id', None)
+        client_secret = request.params.get('client_secret', None)
+        if client_id is None:
+            return OAuth2ErrorHandler.error_invalid_request(
+                    'Required parameter client_id not found in the request')
+        elif client_secret is None:
+            return OAuth2ErrorHandler.error_invalid_request(
+                    'Required parameter client_secret not found in the request'
+                    )
+        else:
+            return client_credential_authorization(request, client_id,
+                                                   client_secret, scope,
+                                                   expires_in)
     # Client Credentials Grant
     elif grant_type == 'password':
         scope = request.params.get('scope', None)  # Optional
         username = request.params.get('username', None)
         password = request.params.get('password', None)
         if username is None:
-            return OAuth2ErrorHandler.error_invalid_request('Required parameter username not found in the request')
+            return OAuth2ErrorHandler.error_invalid_request(
+                    'Required parameter username not found in the request')
         elif password is None:
-            return OAuth2ErrorHandler.error_invalid_request('Required parameter password not found in the request')
+            return OAuth2ErrorHandler.error_invalid_request(
+                    'Required parameter password not found in the request')
         else:
-            return password_authorization(request, username, password, scope, expires_in)
+            return password_authorization(request, username, password, scope,
+                                          expires_in)
     else:
         return OAuth2ErrorHandler.error_unsupported_grant_type()
 

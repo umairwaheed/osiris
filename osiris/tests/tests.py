@@ -7,7 +7,7 @@ from paste.deploy import loadapp
 from osiris.appconst import ACCESS_TOKEN_LENGTH
 
 
-class osirisTests(unittest.TestCase):
+class OsirisTests(unittest.TestCase):
     def setUp(self):
         conf_dir = os.path.dirname(__file__)
         self.app = loadapp('config:test.ini', relative_to=conf_dir)
@@ -65,8 +65,6 @@ class osirisTests(unittest.TestCase):
         payload = {"grant_type": "authorization_code", "username": "testuser", "password": "test"}
         self.testapp.post('/token', payload, status=501)
         payload = {"grant_type": "implicit", "username": "testuser", "password": "test"}
-        self.testapp.post('/token', payload, status=501)
-        payload = {"grant_type": "client_credentials", "username": "testuser", "password": "test"}
         self.testapp.post('/token', payload, status=501)
 
     def test_token_endpoint_autherror(self):
@@ -169,3 +167,35 @@ class osirisTests(unittest.TestCase):
         resp = self.testapp.post(testurl, status=200)
         response = resp.json
         self.assertEqual(access_token, response.get('access_token'))
+
+
+class ClientCredentialTest(OsirisTests):
+    def test_token_endpoint(self):
+        # The standard allows arguments with "application/x-www-form-urlencoded"
+        testurl = ('/token?grant_type=client_credentials&'
+                   'client_id=testuser&client_secret=test')
+        resp = self.testapp.post(testurl, status=200)
+        response = resp.json
+        self.assertTrue(
+            'access_token' in response and
+            len(response.get('access_token')) == ACCESS_TOKEN_LENGTH)
+        self.assertTrue('token_type' in response and response.get('token_type') == 'bearer')
+        self.assertTrue('scope' in response and response.get('scope') is None)
+        self.assertTrue('expires_in' in response and response.get('expires_in') == 0)
+        self.assertEqual(resp.content_type, 'application/json')
+
+        # Allow pass the arguments via standard post payload
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": "test",
+            "client_secret": "test"
+        }
+        resp = self.testapp.post('/token', payload, status=200)
+        response = resp.json
+        self.assertTrue(
+            'access_token' in response and
+            len(response.get('access_token')) == ACCESS_TOKEN_LENGTH)
+        self.assertTrue('token_type' in response and response.get('token_type') == 'bearer')
+        self.assertTrue('scope' in response and response.get('scope') is None)
+        self.assertTrue('expires_in' in response and response.get('expires_in') == 0)
+        self.assertEqual(resp.content_type, 'application/json')

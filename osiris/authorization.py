@@ -5,6 +5,41 @@ from osiris.generator import generate_token
 from pyramid.settings import asbool
 
 
+def client_credential_authorization(request, client_id, client_secret, scope,
+                                    expires_in):
+    # TODO: Authenticate from the DB
+    identity = True
+
+    if not identity:
+        return OAuth2ErrorHandler.error_invalid_grant()
+    else:
+        storage = request.registry.osiris_store
+        # Check if an existing token for the username and scope is already issued
+        issued = storage.retrieve(username=client_id, scope=scope)
+        if issued:
+            # Return the already issued one
+            return dict(access_token=issued.get('token'),
+                        token_type='bearer',
+                        scope=issued.get('scope'),
+                        expires_in=issued.get('expire_time')
+                        )
+        else:
+            # Create and store token
+            token = generate_token()
+            stored = storage.store(token, client_id, scope, expires_in)
+
+            # Issue token
+            if stored:
+                return dict(access_token=token,
+                            token_type='bearer',
+                            scope=scope,
+                            expires_in=int(expires_in)
+                            )
+            else:
+                # If operation error, return a generic server error
+                return HTTPInternalServerError()
+
+
 def password_authorization(request, username, password, scope, expires_in):
 
     ldap_enabled = asbool(request.registry.settings.get('osiris.ldap_enabled'))

@@ -42,3 +42,6 @@ downloads
 .max_settings
 src
 .DS_Store
+
+# VIM
+*.swp
