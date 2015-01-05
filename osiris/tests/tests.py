@@ -209,25 +209,30 @@ class ClientCredentialTest(OsirisTests):
 
     def test_token_endpoint_autherror(self):
         """ On autherrors MUST return Bad Request (400) """
-        # Not the password
-        testurl = '/token?grant_type=password&username=testuser&password=notthepassword'
+        # Invalid secret
+        testurl = ('/token?grant_type=client_credentials&'
+                   'client_id=test_client&client_secret=invalidsecret')
         resp = self.testapp.post(testurl, status=400)
         self.assertEqual(resp.content_type, 'application/json')
 
-        # No such user
-        testurl = '/token?grant_type=password&username=nosuchuser&password=notthepassword'
+        # Invalid client
+        testurl = ('/token?grant_type=client_credentials&'
+                   'client_id=invalid_client&client_secret=test_secret')
         resp = self.testapp.post(testurl, status=400)
         self.assertEqual(resp.content_type, 'application/json')
 
         # POST payload
-        # Not the password
-        payload = {"grant_type": "password", "username": "testuser", "password": "notthepassword"}
+        # Invalid secret
+        payload = {"grant_type": "client_credentials",
+                   "client_id": "test_client",
+                   "client_secret": "invalid_secret"}
         resp = self.testapp.post('/token', payload, status=400)
         self.assertEqual(resp.content_type, 'application/json')
 
         # POST payload
-        # No such user
-        payload = {"grant_type": "password", "username": "nosuchuser", "password": "notthepassword"}
+        # Invalid client
+        payload = {"grant_type": "client_credentials",
+                   "client_id": "invalid_client",
+                   "client_secret": "test_secret"}
         resp = self.testapp.post('/token', payload, status=400)
         self.assertEqual(resp.content_type, 'application/json')
-
