@@ -71,6 +71,9 @@ def enable_oauth(f):
     def wrapper(*args, **kwargs):
         request = args[1]
         access_token = request.params.get('access_token')
+        if access_token is None:
+            return HTTPUnauthorized()
+
         storage = request.registry.osiris_store
         issued = storage.retrieve(token=access_token)
         if issued is not None:

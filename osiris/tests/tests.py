@@ -246,5 +246,11 @@ class ClientCredentialTest(OsirisTests):
         resp = self.testapp.post(testurl, status=200)
         response = resp.json
 
+        payload = {}
+        resp = self.testapp.post("/checkoauth", payload, status=401)
+
+        payload = {'access_token': 'invalid token'}
+        resp = self.testapp.post("/checkoauth", payload, status=401)
+
         payload = {'access_token': response['access_token']}
         resp = self.testapp.post("/checkoauth", payload, status=200)
