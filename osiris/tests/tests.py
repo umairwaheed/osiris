@@ -236,3 +236,15 @@ class ClientCredentialTest(OsirisTests):
                    "client_secret": "test_secret"}
         resp = self.testapp.post('/token', payload, status=400)
         self.assertEqual(resp.content_type, 'application/json')
+
+    def test_oauth(self):
+        payload = {}
+        resp = self.testapp.post("/checkoauth", payload, status=401)
+
+        testurl = ('/token?grant_type=client_credentials&'
+                   'client_id=test_client&client_secret=test_secret')
+        resp = self.testapp.post(testurl, status=200)
+        response = resp.json
+
+        payload = {'access_token': response['access_token']}
+        resp = self.testapp.post("/checkoauth", payload, status=200)

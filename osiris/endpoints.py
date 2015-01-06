@@ -5,6 +5,7 @@ from osiris.appconst import ACCESS_TOKEN_LENGTH
 from osiris.errorhandling import OAuth2ErrorHandler
 from osiris.authorization import password_authorization
 from osiris.authorization import client_credential_authorization
+from osiris.authorization import enable_oauth
 
 
 @view_config(name='token',
@@ -96,3 +97,13 @@ def check_token_endpoint(request):
             return HTTPUnauthorized()
 
     return HTTPUnauthorized()
+
+
+
+@view_config(name='checkoauth',
+             renderer='json',
+             request_method='POST',
+             http_cache=0)
+@enable_oauth
+def check_oauth_endpoint(request):
+    return "Hello World"

@@ -1,8 +1,10 @@
 from pyramid.interfaces import IAuthenticationPolicy
 from pyramid.httpexceptions import HTTPInternalServerError
+from pyramid.httpexceptions import HTTPUnauthorized
 from osiris.errorhandling import OAuth2ErrorHandler
 from osiris.generator import generate_token
 from pyramid.settings import asbool
+import functools
 
 
 def client_credential_authorization(request, client_id, client_secret, scope,
@@ -63,3 +65,17 @@ def get_token_response(request, username, scope, expires_in, identity):
             else:
                 # If operation error, return a generic server error
                 return HTTPInternalServerError()
+
+
+def enable_oauth(f):
+    def wrapper(*args, **kwargs):
+        request = args[1]
+        access_token = request.params.get('access_token')
+        storage = request.registry.osiris_store
+        issued = storage.retrieve(token=access_token)
+        if issued is not None:
+            return f(request)
+        else:
+            return HTTPUnauthorized()
+
+    return wrapper
